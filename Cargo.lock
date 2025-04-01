@@ -1803,6 +1803,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "custom_reward_test"
+version = "0.1.0"
+dependencies = [
+ "beacon_chain",
+ "env_logger 0.9.3",
+ "state_processing",
+ "types",
+]
+
+[[package]]
 name = "darling"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

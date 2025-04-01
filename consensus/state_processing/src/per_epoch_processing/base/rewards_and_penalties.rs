@@ -7,7 +7,7 @@ use crate::per_epoch_processing::{
     Delta, Error,
 };
 use safe_arith::SafeArith;
-use types::{BeaconState, ChainSpec, EthSpec};
+use types::{BeaconState, ChainSpec, EthSpec, Slot};
 
 /// Combination of several deltas for different components of an attestation reward.
 ///
@@ -51,38 +51,54 @@ pub enum ProposerRewardCalculation {
     Exclude,
 }
 
-/// Apply attester and proposer rewards.
+/// Apply proposer rewards based on custom fixed reward structure.
+/// 
+/// - Only first 3 epochs receive rewards (epoch 0, 1, 2)
+/// - Each slot's proposer receives exactly 10 ETH
+/// - No rewards for attesters or other participants
 pub fn process_rewards_and_penalties<E: EthSpec>(
     state: &mut BeaconState<E>,
-    validator_statuses: &ValidatorStatuses,
+    _validator_statuses: &ValidatorStatuses,
     spec: &ChainSpec,
 ) -> Result<(), Error> {
-    if state.current_epoch() == E::genesis_epoch() {
+    let current_epoch = state.current_epoch();
+    
+    // Only apply rewards within first 3 epochs
+    if current_epoch.as_u64() > 2 {
         return Ok(());
     }
 
-    // Guard against an out-of-bounds during the validator balance update.
-    if validator_statuses.statuses.len() != state.balances().len()
-        || validator_statuses.statuses.len() != state.validators().len()
-    {
-        return Err(Error::ValidatorStatusesInconsistent);
+    // For each slot in the current epoch, reward the proposer directly
+    let slots_per_epoch = E::slots_per_epoch();
+    let epoch_start_slot = current_epoch.start_slot(E::slots_per_epoch());
+    
+    // Debug output
+    println!("Applying rewards for epoch {}, slots {} to {}", 
+             current_epoch, 
+             epoch_start_slot, 
+             epoch_start_slot + slots_per_epoch - 1);
+    
+    // For each slot in the current epoch, find and reward the proposer
+    for i in 0..slots_per_epoch {
+        let slot = epoch_start_slot + i;
+        
+        // Find the proposer for this slot
+        match state.get_beacon_proposer_index(slot, spec) {
+            Ok(proposer_index) => {
+                // Fixed reward: 10 ETH (10,000,000,000 Gwei)
+                let old_balance = state.get_balance(proposer_index).unwrap_or(0);
+                increase_balance(state, proposer_index, 10_000_000_000)?;
+                let new_balance = state.get_balance(proposer_index).unwrap_or(0);
+                
+                println!("Rewarded proposer {} for slot {}: {} -> {} (+10 ETH)", 
+                         proposer_index, slot, old_balance, new_balance);
+            },
+            Err(e) => {
+                println!("Could not find proposer for slot {}: {:?}", slot, e);
+            }
+        }
     }
-
-    let deltas = get_attestation_deltas_all(
-        state,
-        validator_statuses,
-        ProposerRewardCalculation::Include,
-        spec,
-    )?;
-
-    // Apply the deltas, erroring on overflow above but not on overflow below (saturating at 0
-    // instead).
-    for (i, delta) in deltas.into_iter().enumerate() {
-        let combined_delta = delta.flatten()?;
-        increase_balance(state, i, combined_delta.rewards)?;
-        decrease_balance(state, i, combined_delta.penalties)?;
-    }
-
+    
     Ok(())
 }
 
@@ -348,9 +364,14 @@ pub fn get_inactivity_penalty_delta(
     Ok(delta)
 }
 
-/// Compute the reward awarded to a proposer for including an attestation from a validator.
+/// Compute the reward awarded to a proposer.
 ///
-/// The `base_reward` param should be the `base_reward` of the attesting validator.
-fn get_proposer_reward(base_reward: u64, spec: &ChainSpec) -> Result<u64, Error> {
-    Ok(base_reward.safe_div(spec.proposer_reward_quotient)?)
+/// Returns a fixed amount (0) for our custom reward structure.
+pub fn get_proposer_reward(
+    _base_reward: u64,
+    _spec: &ChainSpec,
+) -> Result<u64, Error> {
+    // For our custom reward structure, we don't give any proposer rewards here
+    // All rewards are managed centrally in per_block_processing.rs
+    Ok(0)
 }

@@ -844,7 +844,7 @@ impl<E: EthSpec> Network<E> {
                             );
                         }
                         ref e => {
-                            warn!(
+                            debug!(
                                 self.log,
                                 "Could not publish message";
                                 "error" => ?e,

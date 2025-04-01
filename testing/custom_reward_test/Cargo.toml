@@ -1,0 +1,12 @@
+[package]
+name = "custom_reward_test"
+version = "0.1.0"
+authors = ["Lighthouse Contributors"]
+edition = "2021"
+publish = false
+
+[dependencies]
+beacon_chain = { path = "../../beacon_node/beacon_chain" }
+types = { path = "../../consensus/types" }
+state_processing = { path = "../../consensus/state_processing" }
+env_logger = "0.9"

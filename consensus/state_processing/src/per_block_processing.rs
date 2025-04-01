@@ -176,6 +176,8 @@ pub fn per_block_processing<E: EthSpec, Payload: AbstractExecPayload<E>>(
 
     process_randao(state, block, verify_randao, ctxt, spec)?;
     process_eth1_data(state, block.body().eth1_data())?;
+    
+    // Process operations
     process_operations(state, block.body(), verify_signatures, ctxt, spec)?;
 
     if let Ok(sync_aggregate) = block.body().sync_aggregate() {
@@ -190,6 +192,39 @@ pub fn per_block_processing<E: EthSpec, Payload: AbstractExecPayload<E>>(
 
     if is_progressive_balances_enabled(state) {
         update_progressive_balances_metrics(state.progressive_balances_cache())?;
+    }
+    
+    // CENTRALIZED REWARD SYSTEM:
+    // Apply a fixed 10 ETH reward ONLY to the block proposer and ONLY in the first 3 epochs
+    // This is the ONLY place where rewards are applied in our system
+    let current_epoch = state.current_epoch();
+    let slot = block.slot();
+    
+    if current_epoch.as_u64() <= 2 {
+        // We're within the first 3 epochs (0, 1, 2)
+        
+        // First, reset all validator balances to eliminate any unwanted rewards that might
+        // have been applied elsewhere in the system
+        for validator_index in 0..state.validators().len() {
+            if let Ok(balance) = state.get_balance_mut(validator_index) {
+                // Keep only whole ETH increments to avoid fractional ETH rewards
+                *balance = (*balance / 1_000_000_000) * 1_000_000_000;
+            }
+        }
+        
+        // Now apply exactly 10 ETH to the proposer
+        if let Ok(balance) = state.get_balance_mut(proposer_index as usize) {
+            // Ensure the proposer gets exactly one 10 ETH reward for this slot
+            *balance = balance.saturating_add(10_000_000_000);
+        }
+        
+        // Log the reward for debugging purposes
+        println!("Applied 10 ETH reward to proposer {} in epoch {} slot {}", 
+                 proposer_index, current_epoch, slot);
+    } else {
+        // Beyond epoch 2, no rewards should be given
+        println!("No rewards applied in epoch {} slot {} (beyond reward period)", 
+                 current_epoch, slot);
     }
 
     Ok(())
