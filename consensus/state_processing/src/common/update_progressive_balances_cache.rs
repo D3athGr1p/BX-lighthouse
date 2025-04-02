@@ -95,6 +95,8 @@ pub fn update_progressive_balances_on_attestation<E: EthSpec>(
     validator_slashed: bool,
 ) -> Result<(), BlockProcessingError> {
     if is_progressive_balances_enabled(state) {
+        // Always update the progressive balances cache to ensure proper tracking for finalization
+        // Even if we don't give full rewards, the finalization mechanism still needs to track participation
         state.progressive_balances_cache_mut().on_new_attestation(
             epoch,
             validator_slashed,

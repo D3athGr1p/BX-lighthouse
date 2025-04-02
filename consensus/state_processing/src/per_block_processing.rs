@@ -1,4 +1,5 @@
 use crate::consensus_context::ConsensusContext;
+use crate::rewards::{RewardConfig, apply_all_rewards};
 use errors::{BlockOperationError, BlockProcessingError, HeaderInvalid};
 use rayon::prelude::*;
 use safe_arith::{ArithError, SafeArith};
@@ -195,36 +196,26 @@ pub fn per_block_processing<E: EthSpec, Payload: AbstractExecPayload<E>>(
     }
     
     // CENTRALIZED REWARD SYSTEM:
-    // Apply a fixed 10 ETH reward ONLY to the block proposer and ONLY in the first 3 epochs
-    // This is the ONLY place where rewards are applied in our system
+    // Use our new rewards module to handle all rewards in one place
     let current_epoch = state.current_epoch();
     let slot = block.slot();
     
-    if current_epoch.as_u64() <= 2 {
-        // We're within the first 3 epochs (0, 1, 2)
-        
-        // First, reset all validator balances to eliminate any unwanted rewards that might
-        // have been applied elsewhere in the system
-        for validator_index in 0..state.validators().len() {
-            if let Ok(balance) = state.get_balance_mut(validator_index) {
-                // Keep only whole ETH increments to avoid fractional ETH rewards
-                *balance = (*balance / 1_000_000_000) * 1_000_000_000;
-            }
-        }
-        
-        // Now apply exactly 10 ETH to the proposer
-        if let Ok(balance) = state.get_balance_mut(proposer_index as usize) {
-            // Ensure the proposer gets exactly one 10 ETH reward for this slot
-            *balance = balance.saturating_add(10_000_000_000);
-        }
-        
-        // Log the reward for debugging purposes
-        println!("Applied 10 ETH reward to proposer {} in epoch {} slot {}", 
-                 proposer_index, current_epoch, slot);
-    } else {
-        // Beyond epoch 2, no rewards should be given
-        println!("No rewards applied in epoch {} slot {} (beyond reward period)", 
-                 current_epoch, slot);
+    // Create a default reward config (can be customized if needed)
+    let reward_config = RewardConfig::default();
+    
+    // Get sync aggregate if available
+    let sync_aggregate_opt = block.body().sync_aggregate().ok();
+    
+    // Apply all rewards using the centralized system
+    if let Err(e) = apply_all_rewards(
+        state,
+        proposer_index,
+        sync_aggregate_opt,
+        current_epoch,
+        slot,
+        &reward_config,
+    ) {
+        println!("Warning: Failed to apply rewards: {}", e);
     }
 
     Ok(())

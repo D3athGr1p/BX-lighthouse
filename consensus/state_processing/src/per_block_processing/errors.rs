@@ -312,42 +312,52 @@ pub enum AttesterSlashingInvalid {
 /// Describes why an object is invalid.
 #[derive(Debug, PartialEq, Clone)]
 pub enum AttestationInvalid {
-    /// Committee index exceeds number of committees in that slot.
-    BadCommitteeIndex,
-    /// Attestation included before the inclusion delay.
-    IncludedTooEarly {
-        state: Slot,
-        delay: u64,
+    /// The attestation's slot is too high to be included in the given state.
+    FutureSlot {
         attestation: Slot,
+        state: Slot,
     },
-    /// Attestation slot is too far in the past to be included in a block.
-    IncludedTooLate { state: Slot, attestation: Slot },
-    /// Attestation target epoch does not match attestation slot.
+    /// The attestation's slot is too low to be included in the given state.
+    PastSlot {
+        attestation: Slot,
+        state: Slot,
+    },
+    /// The attestation references a target epoch in the past.
+    PastTargetEpoch {
+        attestation: Epoch,
+        state: Epoch,
+    },
+    /// The attestation references a target epoch in a future slot.
+    FutureTargetEpoch {
+        attestation: Epoch,
+        state: Epoch,
+    },
+    /// The attestation has an incorrect target epoch for its slot.
     TargetEpochSlotMismatch {
         target_epoch: Epoch,
         slot_epoch: Epoch,
     },
-    /// Attestation target epoch does not match the current or previous epoch.
+    /// The attestation's target epoch doesn't match its source checkpoint.
     BadTargetEpoch,
-    /// Attestation justified checkpoint doesn't match the state's current or previous justified
-    /// checkpoint.
-    ///
-    /// `is_current` is `true` if the attestation was compared to the
-    /// `state.current_justified_checkpoint`, `false` if compared to `state.previous_justified_checkpoint`.
-    ///
-    /// Checkpoints have been boxed to keep the error size down and prevent clippy failures.
+    /// The finalized checkpoint within the state does not match what is implied by the attestation.
+    FinalizedCheckpointMismatch,
+    /// The justified checkpoint within the state does not match what is implied by the attestation.
     WrongJustifiedCheckpoint {
         state: Box<Checkpoint>,
         attestation: Box<Checkpoint>,
         is_current: bool,
     },
-    /// The aggregation bitfield length is not the smallest possible size to represent the committee.
-    BadAggregationBitfieldLength {
-        committee_len: usize,
-        bitfield_len: usize,
+    /// Invalid target epoch.
+    TargetEpochIncorrect {
+        target_epoch: Epoch, 
+        current_epoch: Epoch,
     },
-    /// The attestation was not disjoint compared to already seen attestations.
-    NotDisjoint,
+    /// Invalid source epoch.
+    SourceEpochIncorrect {
+        source: Checkpoint,
+        target_epoch: Epoch,
+        expected_source: Checkpoint,
+    },
     /// The validator index was unknown.
     UnknownValidator(u64),
     /// The attestation signature verification failed.
