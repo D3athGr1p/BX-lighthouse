@@ -63,11 +63,15 @@ pub fn process_rewards_and_penalties<E: EthSpec>(
 ) -> Result<(), Error> {
     let current_epoch = state.current_epoch();
     
-    // Only apply rewards within first 3 epochs
-    if current_epoch.as_u64() > 2 {
-        return Ok(());
-    }
-
+    // Import the rewards module to use its functionality
+    use crate::rewards::{RewardConfig, calculate_reward_amounts};
+    
+    // Create reward config with default values
+    let reward_config = RewardConfig::default();
+    
+    // Calculate rewards based on current epoch
+    let reward_amounts = calculate_reward_amounts(current_epoch, &reward_config);
+    
     // For each slot in the current epoch, reward the proposer directly
     let slots_per_epoch = E::slots_per_epoch();
     let epoch_start_slot = current_epoch.start_slot(E::slots_per_epoch());
@@ -78,24 +82,67 @@ pub fn process_rewards_and_penalties<E: EthSpec>(
              epoch_start_slot, 
              epoch_start_slot + slots_per_epoch - 1);
     
-    // For each slot in the current epoch, find and reward the proposer
+    // Always process proposer rewards
     for i in 0..slots_per_epoch {
         let slot = epoch_start_slot + i;
         
         // Find the proposer for this slot
         match state.get_beacon_proposer_index(slot, spec) {
             Ok(proposer_index) => {
-                // Fixed reward: 10 ETH (10,000,000,000 Gwei)
-                let old_balance = state.get_balance(proposer_index).unwrap_or(0);
-                increase_balance(state, proposer_index, 10_000_000_000)?;
-                let new_balance = state.get_balance(proposer_index).unwrap_or(0);
-                
-                println!("Rewarded proposer {} for slot {}: {} -> {} (+10 ETH)", 
-                         proposer_index, slot, old_balance, new_balance);
+                if reward_amounts.proposer_reward > 0 {
+                    let old_balance = state.get_balance(proposer_index).unwrap_or(0);
+                    increase_balance(state, proposer_index, reward_amounts.proposer_reward)?;
+                    let new_balance = state.get_balance(proposer_index).unwrap_or(0);
+                    
+                    println!("Rewarded proposer {} for slot {}: {} -> {} (+{} Gwei)", 
+                             proposer_index, slot, old_balance, new_balance, reward_amounts.proposer_reward);
+                }
             },
             Err(e) => {
                 println!("Could not find proposer for slot {}: {:?}", slot, e);
             }
+        }
+    }
+    
+    // Process attestation rewards
+    if reward_amounts.attestation_reward > 0 {
+        // Use the attestation reward logic from rewards.rs
+        use crate::rewards::collect_attesting_validators;
+        
+        let validators_to_reward = collect_attesting_validators(state);
+        
+        // Apply rewards to active validators who participated in attestations
+        for validator_index in validators_to_reward {
+            increase_balance(state, validator_index, reward_amounts.attestation_reward)?;
+            println!("Rewarded attester {} in epoch {}: +{} Gwei",
+                    validator_index, current_epoch, reward_amounts.attestation_reward);
+        }
+    }
+    
+    // Process sync committee rewards if applicable
+    if reward_amounts.sync_committee_reward > 0 {
+        // First, collect sync committee pubkeys without retaining any reference to state
+        let mut committee_pubkeys = Vec::new();
+        if let Ok(sync_committee) = state.current_sync_committee() {
+            // Copy the public keys to avoid keeping a reference to sync_committee
+            for pubkey in sync_committee.pubkeys.iter() {
+                committee_pubkeys.push(pubkey.clone());
+            }
+        }
+        
+        // Next, collect validator indices without any sync committee references
+        let mut sync_committee_validators = Vec::new();
+        for pubkey in committee_pubkeys.iter() {
+            if let Ok(Some(validator_index)) = state.get_validator_index(pubkey) {
+                sync_committee_validators.push(validator_index);
+            }
+        }
+        
+        // Finally, apply rewards with no conflicts
+        for validator_index in sync_committee_validators {
+            increase_balance(state, validator_index, reward_amounts.sync_committee_reward)?;
+            println!("Rewarded sync committee member {} in epoch {}: +{} Gwei",
+                    validator_index, current_epoch, reward_amounts.sync_committee_reward);
         }
     }
     

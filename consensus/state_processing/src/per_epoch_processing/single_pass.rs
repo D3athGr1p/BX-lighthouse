@@ -426,15 +426,27 @@ fn process_single_reward_and_penalty(
     state_ctxt: &StateContext,
     spec: &ChainSpec,
 ) -> Result<(), Error> {
-    // For our custom fixed reward structure, we don't apply any rewards here
-    // All rewards are managed centrally in per_block_processing.rs
+    // IMPORTANT: We need to apply both the standard rewards (here) AND our centralized rewards
+    // Simply disabling rewards here breaks validator attestation incentives
     
     if !validator_info.is_eligible {
         return Ok(());
     }
 
-    // We still apply penalties (especially for inactivity) to maintain chain health
     let mut delta = Delta::default();
+
+    // Process standard rewards for each flag index (this is critical for attestation incentives)
+    for flag_index in 0..NUM_FLAG_INDICES {
+        get_flag_index_delta(
+            &mut delta,
+            validator_info,
+            flag_index,
+            _rewards_ctxt,
+            state_ctxt,
+        )?;
+    }
+
+    // Always apply inactivity penalties to maintain chain health
     get_inactivity_penalty_delta(
         &mut delta,
         validator_info,
@@ -443,9 +455,10 @@ fn process_single_reward_and_penalty(
         spec,
     )?;
 
-    if delta.penalties != 0 {
+    // Apply both rewards and penalties
+    if delta.rewards != 0 || delta.penalties != 0 {
         let balance = balance.make_mut()?;
-        *balance = balance.saturating_sub(delta.penalties);
+        *balance = balance.saturating_add(delta.rewards).saturating_sub(delta.penalties);
     }
 
     Ok(())

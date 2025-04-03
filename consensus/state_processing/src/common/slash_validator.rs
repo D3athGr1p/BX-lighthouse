@@ -11,8 +11,8 @@ use types::{*};
 pub fn slash_validator<E: EthSpec>(
     state: &mut BeaconState<E>,
     slashed_index: usize,
-    opt_whistleblower_index: Option<usize>,
-    ctxt: &mut ConsensusContext<E>,
+    _opt_whistleblower_index: Option<usize>,
+    _ctxt: &mut ConsensusContext<E>,
     spec: &ChainSpec,
 ) -> Result<(), BlockProcessingError> {
     let epoch = state.current_epoch();

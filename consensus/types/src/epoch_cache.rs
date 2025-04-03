@@ -121,10 +121,6 @@ impl EpochCache {
             .as_ref()
             .ok_or(EpochCacheError::CacheNotInitialized)?;
             
-        // For our custom reward structure: return 0 for epochs > 2
-        if inner.key.epoch > Epoch::new(2) {
-            return Ok(0);
-        }
         
         let effective_balance = self.get_effective_balance(validator_index)?;
         let effective_balance_eth =
