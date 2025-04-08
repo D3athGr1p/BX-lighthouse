@@ -1,8 +1,10 @@
 use crate::{VerifySignatures, rewards::{RewardConfig, calculate_reward_amounts}};
+use crate::signature_sets::sync_aggregate_signature_set;
+use crate::per_block_processing::errors::{BlockProcessingError, SyncAggregateInvalid};
 use types::{
-    BeaconState, ChainSpec, EthSpec, SyncAggregate
+    BeaconState, ChainSpec, EthSpec, SyncAggregate, PublicKeyBytes, Epoch, Slot
 };
-use crate::per_block_processing::errors::BlockProcessingError;
+use std::borrow::Cow;
 
 pub fn process_sync_aggregate<E: EthSpec>(
     state: &mut BeaconState<E>,
@@ -13,11 +15,32 @@ pub fn process_sync_aggregate<E: EthSpec>(
 ) -> Result<(), BlockProcessingError> {
     // Verify sync committee aggregate signature signing over the previous slot block root
     if verify_signatures.is_true() {
-        verify_sync_committee_signature(state, aggregate, spec)?;
+        // This decompression could be avoided with a cache, but we're not likely
+        // to encounter this case in practice due to the use of pre-emptive signature
+        // verification (which uses the `ValidatorPubkeyCache`).
+        let decompressor = |pk_bytes: &PublicKeyBytes| pk_bytes.decompress().ok().map(Cow::Owned);
+
+        // Check that the signature is over the previous block root.
+        let previous_slot = state.slot().saturating_sub(1u64);
+        let previous_block_root = *state.get_block_root(previous_slot)?;
+
+        let signature_set = sync_aggregate_signature_set(
+            decompressor,
+            aggregate,
+            state.slot(),
+            previous_block_root,
+            state,
+            spec,
+        )?;
+
+        // If signature set is `None` then the signature is valid (infinity).
+        if signature_set.map_or(false, |signature| !signature.verify()) {
+            return Err(SyncAggregateInvalid::SignatureInvalid.into());
+        }
     }
 
     // Process participation updates to ensure proper tracking
-    process_sync_committee_contributions(state, aggregate)?;
+    // process_sync_committee_contributions(state, aggregate)?;
     
     // Note: Actual rewards are now handled in a centralized manner in the rewards.rs module
     // and applied in per_block_processing.rs

@@ -23,6 +23,7 @@ log = { workspace = true }
 rayon = { workspace = true }
 rand = { workspace = true }
 safe_arith = { workspace = true }
+# Removing state_processing dependency to break circular dependency
 serde = { workspace = true, features = ["rc"] }
 slog = { workspace = true }
 ethereum_ssz = { workspace = true, features = ["arbitrary"] }
@@ -57,7 +58,6 @@ fixed_bytes = { workspace = true }
 [dev-dependencies]
 criterion = { workspace = true }
 beacon_chain = { workspace = true }
-state_processing = { workspace = true }
 tokio = { workspace = true }
 paste = { workspace = true }
 

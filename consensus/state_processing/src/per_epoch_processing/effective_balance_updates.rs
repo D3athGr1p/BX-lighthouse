@@ -35,7 +35,7 @@ pub fn process_effective_balance_updates<E: EthSpec>(
         {
             std::cmp::min(
                 balance.safe_sub(balance.safe_rem(spec.effective_balance_increment)?)?,
-                spec.max_effective_balance,
+                spec.max_effective_balance_electra, // Always use the maximum 1024 ETH value for effective balance
             )
         } else {
             validator.effective_balance

@@ -550,8 +550,12 @@ pub fn get_expected_withdrawals<E: EthSpec>(
                 let withdrawal_balance = state.get_balance(withdrawal.index as usize)?;
                 let validator = state.get_validator(withdrawal.index as usize)?;
 
-                let has_sufficient_effective_balance =
-                    validator.effective_balance >= spec.min_activation_balance;
+                // Always consider validators to have sufficient effective balance when using forced_electra_mode
+                // This ensures withdrawals work correctly with our custom reward system
+                let max_effective_balance = validator.get_max_effective_balance(spec, fork_name);
+                println!("validator.effective_balance == max_effective_balance {} validator.effective_balance : {} max_effective_balance : {}", validator.effective_balance == max_effective_balance, validator.effective_balance, max_effective_balance);
+                let has_sufficient_effective_balance = spec.forced_electra_mode || 
+                    validator.effective_balance == max_effective_balance;
                 let has_excess_balance = withdrawal_balance > spec.min_activation_balance;
 
                 if validator.exit_epoch == spec.far_future_epoch
@@ -562,15 +566,17 @@ pub fn get_expected_withdrawals<E: EthSpec>(
                         withdrawal_balance.safe_sub(spec.min_activation_balance)?,
                         withdrawal.amount,
                     );
-                    withdrawals.push(Withdrawal {
-                        index: withdrawal_index,
-                        validator_index: withdrawal.index,
-                        address: validator
-                            .get_execution_withdrawal_address(spec)
-                            .ok_or(BeaconStateError::NonExecutionAddresWithdrawalCredential)?,
-                        amount: withdrawable_balance,
-                    });
-                    withdrawal_index.safe_add_assign(1)?;
+                    if validator.has_execution_withdrawal_credential(spec) {
+                        withdrawals.push(Withdrawal {
+                            index: withdrawal_index,
+                            validator_index: withdrawal.index,
+                            address: validator
+                                .get_execution_withdrawal_address(spec)
+                                .ok_or(BeaconStateError::NonExecutionAddresWithdrawalCredential)?,
+                            amount: withdrawable_balance,
+                        });
+                        withdrawal_index.safe_add_assign(1)?;
+                    }
                 }
             }
             Some(withdrawals.len())
@@ -598,15 +604,27 @@ pub fn get_expected_withdrawals<E: EthSpec>(
             });
             withdrawal_index.safe_add_assign(1)?;
         } else if validator.is_partially_withdrawable_validator(balance, spec, fork_name) {
+            // Calculate withdrawable amount differently based on mode
+            let withdrawable_amount = if spec.forced_electra_mode {
+                // In forced mode, consider excess above min_activation_balance withdrawable
+                balance.safe_sub(spec.min_activation_balance)?
+            } else {
+                // Standard behavior - excess above max_effective_balance is withdrawable
+                balance.safe_sub(
+                    validator.get_max_effective_balance(spec, state.fork_name_unchecked()),
+                )?
+            };
+            
+            println!("PARTIAL WITHDRAWAL: validator {}, balance {}, withdrawable {}", 
+                     validator_index, balance, withdrawable_amount);
+                     
             withdrawals.push(Withdrawal {
                 index: withdrawal_index,
                 validator_index,
                 address: validator
                     .get_execution_withdrawal_address(spec)
                     .ok_or(BlockProcessingError::WithdrawalCredentialsInvalid)?,
-                amount: balance.safe_sub(
-                    validator.get_max_effective_balance(spec, state.fork_name_unchecked()),
-                )?,
+                amount: withdrawable_amount,
             });
             withdrawal_index.safe_add_assign(1)?;
         }
@@ -629,6 +647,9 @@ pub fn process_withdrawals<E: EthSpec, Payload: AbstractExecPayload<E>>(
 ) -> Result<(), BlockProcessingError> {
     match state {
         BeaconState::Capella(_) | BeaconState::Deneb(_) | BeaconState::Electra(_) => {
+            // No forced update here - instead we've modified the validator checks to be compatible
+            // with our 1024 ETH validators regardless of their current effective balance
+
             let (expected_withdrawals, partial_withdrawals_count) =
                 get_expected_withdrawals(state, spec)?;
             let expected_root = expected_withdrawals.tree_hash_root();

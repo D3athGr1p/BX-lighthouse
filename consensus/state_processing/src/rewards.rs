@@ -17,21 +17,40 @@ pub struct RewardConfig {
     pub initial_reward_epochs: u64,
 }
 
+// impl Default for RewardConfig {
+//     fn default() -> Self {
+//         Self {
+//             // Scale the rewards appropriately for 1024 ETH validator balance
+//             // Initial rewards (first few epochs) - higher to incentivize participation
+//             proposer_reward_initial: 1_000_000_000, // 1 ETH in Gwei
+//             attestation_reward_initial: 500_000_000, // 0.5 ETH in Gwei
+//             sync_committee_reward_initial: 300_000_000, // 0.3 ETH in Gwei
+            
+//             // Ongoing rewards after initial period
+//             attestation_reward_ongoing: 200_000_000, // 0.2 ETH in Gwei
+//             sync_committee_reward_ongoing: 100_000_000, // 0.1 ETH in Gwei
+            
+//             // Initial reward period lasts for 10 epochs
+//             initial_reward_epochs: 10,
+//         }
+//     }
+// }
+
 impl Default for RewardConfig {
     fn default() -> Self {
         Self {
-            // 10 ETH = 10_000_000_000 Gwei
-            proposer_reward_initial: 10_000_000_000,
-            // 0.0001 ETH = 1_00_000 Gwei
-            attestation_reward_initial: 1_00_000,
-            // 0.0001 ETH = 1_00_000 Gwei
-            sync_committee_reward_initial: 1_00_000,
-            // Maintaining the same as initial rewards to ensure continued attestation
-            attestation_reward_ongoing: 1_00_000,
-            // Maintaining the same as initial rewards
-            sync_committee_reward_ongoing: 1_00_000,
-            // Initial rewards valid for epochs 0-2
-            initial_reward_epochs: 2,
+            // Scale the rewards appropriately for 1024 ETH validator balance
+            // Initial rewards (first few epochs) - higher to incentivize participation
+            proposer_reward_initial: 10_000_000_000, // 10 ETH in Gwei
+            attestation_reward_initial: 1_00_000, // 0.0001 ETH in Gwei
+            sync_committee_reward_initial: 1_00_000, // 0.0001 ETH in Gwei
+            
+            // Ongoing rewards after initial period
+            attestation_reward_ongoing: 1_00_000, // 0.2 ETH in Gwei
+            sync_committee_reward_ongoing: 1_00_000, // 0.1 ETH in Gwei
+            
+            // Initial reward period lasts for 10 epochs
+            initial_reward_epochs: 10,
         }
     }
 }
@@ -58,9 +77,9 @@ pub fn calculate_reward_amounts(
         }
     } else {
         RewardAmounts {
-            proposer_reward: 0, // Ongoing proposer reward (1 ETH = 1_000_000_000 Gwei)
-            attestation_reward: 0,
-            sync_committee_reward: 0,
+            proposer_reward: config.proposer_reward_initial / 2, // 5 ETH for ongoing proposer rewards
+            attestation_reward: config.attestation_reward_ongoing,
+            sync_committee_reward: config.sync_committee_reward_ongoing,
         }
     }
 }
@@ -95,7 +114,7 @@ pub fn collect_attesting_validators<E: EthSpec>(
             // Check if any participation flag is set
             if participation.into_u8() > 0 {
                 validators_to_reward.insert(validator_index);
-                println!("Validator {} had participation flags set in previous epoch", validator_index);
+                // println!("Validator {} had participation flags set in previous epoch", validator_index);
             }
         }
     }
@@ -106,7 +125,7 @@ pub fn collect_attesting_validators<E: EthSpec>(
             // Check if any participation flag is set
             if participation.into_u8() > 0 {
                 validators_to_reward.insert(validator_index);
-                println!("Validator {} had participation flags set in current epoch", validator_index);
+                // println!("Validator {} had participation flags set in current epoch", validator_index);
             }
         }
     }
@@ -143,7 +162,7 @@ pub fn apply_attestation_rewards<E: EthSpec>(
     for validator_index in validators_to_reward {
         if let Ok(balance) = state.get_balance_mut(validator_index) {
             *balance = balance.saturating_add(reward_amount);
-            println!("Applied {} Gwei attestation reward to validator {}", reward_amount, validator_index);
+            // println!("Applied {} Gwei attestation reward to validator {}", reward_amount, validator_index);
         }
     }
     
@@ -187,7 +206,7 @@ pub fn apply_sync_committee_rewards<E: EthSpec>(
     for validator_index in sync_committee_indices {
         if let Ok(balance) = state.get_balance_mut(validator_index) {
             *balance = balance.saturating_add(reward_amount);
-            println!("Rewarded sync committee validator {} with {} Gwei", validator_index, reward_amount);
+            // println!("Rewarded sync committee validator {} with {} Gwei", validator_index, reward_amount);
         }
     }
     

@@ -9308,7 +9308,6 @@ dependencies = [
  "slog",
  "smallvec",
  "ssz_types",
- "state_processing",
  "superstruct",
  "swap_or_not_shuffle",
  "tempfile",
