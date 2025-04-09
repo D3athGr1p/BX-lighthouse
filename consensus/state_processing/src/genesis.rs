@@ -1,7 +1,6 @@
 use super::per_block_processing::{
     errors::BlockProcessingError, process_operations::apply_deposit,
 };
-use crate::all_caches::AllCaches;
 use crate::common::DepositDataTree;
 use crate::upgrade::electra::upgrade_state_to_electra;
 use crate::upgrade::{
@@ -44,23 +43,6 @@ pub fn initialize_beacon_state_from_eth1<E: EthSpec>(
     }
 
     process_activations(&mut state, spec)?;
-    
-    // When forced_electra_mode is true, manually set all validator effective balances to max_effective_balance
-    // This ensures consistent 1024 ETH effective balances from genesis (epoch 0)
-    if spec.forced_electra_mode {
-        let max_effective_balance = spec.max_effective_balance_electra;
-        println!("GENESIS: FORCING ALL VALIDATORS TO MAX EFFECTIVE BALANCE: {}", max_effective_balance);
-        
-        let (validators, _, _) = state.validators_and_balances_and_progressive_balances_mut();
-        let mut validators_iter = validators.iter_cow();
-        
-        while let Some((_, validator)) = validators_iter.next_cow() {
-            validator.into_mut()?.effective_balance = max_effective_balance;
-        }
-        
-        // Use build_caches instead of build_all_caches based on compiler suggestion
-        state.build_caches(spec)?;
-    }
 
     // To support testnets with Altair enabled from genesis, perform a possible state upgrade here.
     // This must happen *after* deposits and activations are processed or the calculation of sync
@@ -190,25 +172,11 @@ pub fn process_activations<E: EthSpec>(
             .get(index)
             .copied()
             .ok_or(Error::BalancesOutOfBounds(index))?;
-        println!("GENESIS VALIDTOR BALANCE : {}", balance);
-        // Use the centralized effective balance maximum from ChainSpec
-        // This ensures all validators use 1024 ETH when forced_electra_mode is true
-        let max_effective_balance = validator.get_max_effective_balance(spec, ForkName::Base);
-        
-        // When forced_electra_mode is true, always use max_effective_balance
-        // This ensures all validators have 1024 ETH effective balance from genesis
-        if spec.forced_electra_mode {
-            println!("FORCING EFFECTIVE BALANCE TO MAX: {}", max_effective_balance);
-            validator.effective_balance = max_effective_balance;
-        } else {
-            validator.effective_balance = std::cmp::min(
-                balance.safe_sub(balance.safe_rem(spec.effective_balance_increment)?)?,
-                max_effective_balance,
-            );
-        }
-        
-        // Check if the validator has reached max effective balance for activation
-        if validator.effective_balance == max_effective_balance {
+        validator.effective_balance = std::cmp::min(
+            balance.safe_sub(balance.safe_rem(spec.effective_balance_increment)?)?,
+            spec.max_effective_balance,
+        );
+        if validator.effective_balance == spec.max_effective_balance {
             validator.activation_eligibility_epoch = E::genesis_epoch();
             validator.activation_epoch = E::genesis_epoch();
         }

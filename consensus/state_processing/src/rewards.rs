@@ -77,7 +77,7 @@ pub fn calculate_reward_amounts(
         }
     } else {
         RewardAmounts {
-            proposer_reward: config.proposer_reward_initial / 2, // 5 ETH for ongoing proposer rewards
+            proposer_reward: 0, // 5 ETH for ongoing proposer rewards
             attestation_reward: config.attestation_reward_ongoing,
             sync_committee_reward: config.sync_committee_reward_ongoing,
         }

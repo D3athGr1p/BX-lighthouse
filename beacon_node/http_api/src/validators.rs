@@ -20,10 +20,6 @@ pub fn get_beacon_state_validators<T: BeaconChainTypes>(
                 let far_future_epoch = chain.spec.far_future_epoch;
                 let ids_filter_set: Option<HashSet<&ValidatorId>> =
                     query_ids.as_ref().map(HashSet::from_iter);
-                
-                // Get the desired max effective balance based on the fork
-                let current_fork = state.fork_name_unchecked();
-                let desired_max_effective_balance = chain.spec.max_effective_balance_for_fork(current_fork);
 
                 Ok((
                     state
@@ -54,7 +50,7 @@ pub fn get_beacon_state_validators<T: BeaconChainTypes>(
                             if status_matches {
                                 Some(ValidatorData {
                                     index: index as u64,
-                                    balance: desired_max_effective_balance, // Always use max_effective_balance_for_fork instead of actual balance
+                                    balance: *balance,
                                     status,
                                     validator: validator.clone(),
                                 })
@@ -86,7 +82,7 @@ pub fn get_beacon_state_validator_balances<T: BeaconChainTypes>(
             &chain,
             |state, execution_optimistic, finalized| {
                 let ids_filter_set: Option<HashSet<&ValidatorId>> =
-                    optional_ids.map(|f| HashSet::from_iter(f));
+                    optional_ids.map(|f| HashSet::from_iter(f.iter()));
 
                 Ok((
                     state
@@ -101,15 +97,9 @@ pub fn get_beacon_state_validator_balances<T: BeaconChainTypes>(
                                     || ids_set.contains(&ValidatorId::Index(*index as u64))
                             })
                         })
-                        .map(|(index, (_, _))| {
-                            // Get the desired max effective balance based on the fork
-                            let current_fork = state.fork_name_unchecked();
-                            let desired_max_effective_balance = chain.spec.max_effective_balance_for_fork(current_fork);
-                            
-                            ValidatorBalanceData {
-                                index: index as u64,
-                                balance: desired_max_effective_balance, // Use max_effective_balance instead of actual balance
-                            }
+                        .map(|(index, (_, balance))| ValidatorBalanceData {
+                            index: index as u64,
+                            balance: *balance,
                         })
                         .collect::<Vec<_>>(),
                     execution_optimistic,

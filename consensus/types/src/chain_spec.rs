@@ -34,11 +34,6 @@ pub enum Domain {
 /// Contains a mixture of "preset" and "config" values w.r.t to the EF definitions.
 #[derive(arbitrary::Arbitrary, PartialEq, Debug, Clone)]
 pub struct ChainSpec {
-    /// Whether to use Electra values for rewards and effective balances, without
-    /// forcing protocol-level Electra fork compatibility. This ensures that validators
-    /// get 1024 ETH effective balances and the reward system works correctly
-    /// without breaking block production due to execution client compatibility.
-    pub forced_electra_mode: bool,
     /*
      * Config name
      */
@@ -191,13 +186,6 @@ pub struct ChainSpec {
     pub max_pending_partials_per_withdrawals_sweep: u64,
     pub min_per_epoch_churn_limit_electra: u64,
     pub max_per_epoch_activation_exit_churn_limit: u64,
-    pub pending_balance_deposits_limit: u64,
-    pub pending_partial_withdrawals_limit: u64,
-    pub pending_consolidations_limit: u64,
-    pub max_attester_slashings_electra: u64,
-    pub max_attestations_electra: u64,
-    pub max_consolidation_requests_per_payload: u64,
-    pub max_deposit_requests_per_payload: u64,
 
     /*
      * DAS params
@@ -418,9 +406,7 @@ impl ChainSpec {
     }
 
     pub fn max_effective_balance_for_fork(&self, fork_name: ForkName) -> u64 {
-        // When forced_electra_mode is true, always return max_effective_balance_electra
-        // Otherwise only return it for the actual Electra fork
-        if self.forced_electra_mode || fork_name >= ForkName::Electra {
+        if fork_name.electra_enabled() {
             self.max_effective_balance_electra
         } else {
             self.max_effective_balance
@@ -623,7 +609,6 @@ impl ChainSpec {
     /// Returns a `ChainSpec` compatible with the Ethereum Foundation specification.
     pub fn mainnet() -> Self {
         Self {
-            forced_electra_mode: true, // Always use Electra rewards and balance behavior
             /*
              * Config name
              */
@@ -808,14 +793,6 @@ impl ChainSpec {
                 u64::checked_pow(2, 8)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
-            
-            pending_balance_deposits_limit: 134217728,
-            pending_partial_withdrawals_limit: 134217728,
-            pending_consolidations_limit: 262144,
-            max_attester_slashings_electra: 1,
-            max_attestations_electra: 8,
-            max_consolidation_requests_per_payload: 1,
-            max_deposit_requests_per_payload: 8192,
 
             /*
              * DAS params
@@ -881,7 +858,6 @@ impl ChainSpec {
         let boot_nodes = vec![];
 
         Self {
-            forced_electra_mode: true, // Always use Electra rewards and balance behavior
             config_name: None,
             max_committees_per_slot: 4,
             target_committee_size: 4,
@@ -933,13 +909,6 @@ impl ChainSpec {
                 u64::checked_pow(2, 7)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
-            pending_balance_deposits_limit: 134217728,
-            pending_partial_withdrawals_limit: 134217728,
-            pending_consolidations_limit: 262144,
-            max_attester_slashings_electra: 1,
-            max_attestations_electra: 8,
-            max_consolidation_requests_per_payload: 1,
-            max_deposit_requests_per_payload: 8192,
             // PeerDAS
             eip7594_fork_epoch: None,
             // Other
@@ -948,7 +917,7 @@ impl ChainSpec {
             deposit_network_id: 5,
             deposit_contract_address: "1234567890123456789012345678901234567890"
                 .parse()
-                .expect("chain spec deposit address"),
+                .expect("minimal chain spec deposit address"),
             boot_nodes,
             ..ChainSpec::mainnet()
         }
@@ -957,7 +926,6 @@ impl ChainSpec {
     /// Returns a `ChainSpec` compatible with the Gnosis Beacon Chain specification.
     pub fn gnosis() -> Self {
         Self {
-            forced_electra_mode: true, // Always use Electra rewards and balance behavior
             config_name: Some("gnosis".to_string()),
             /*
              * Constants
@@ -1139,14 +1107,6 @@ impl ChainSpec {
                 u64::checked_pow(2, 8)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
-
-            pending_balance_deposits_limit: 134217728,
-            pending_partial_withdrawals_limit: 134217728,
-            pending_consolidations_limit: 262144,
-            max_attester_slashings_electra: 1,
-            max_attestations_electra: 8,
-            max_consolidation_requests_per_payload: 1,
-            max_deposit_requests_per_payload: 8192,
 
             /*
              * DAS params

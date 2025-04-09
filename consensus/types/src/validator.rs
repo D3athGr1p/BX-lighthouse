@@ -36,18 +36,6 @@ pub struct Validator {
 }
 
 impl Validator {
-    /// Get effective balance for reward calculations, properly accounting for the Electra fork
-    /// Always returns max_effective_balance for the fork when in Electra fork
-    pub fn get_effective_balance_for_rewards(&self, spec: &ChainSpec, current_fork: ForkName) -> u64 {
-        spec.max_effective_balance_for_fork(current_fork)
-        // if current_fork.electra_enabled() {
-        //     // In Electra fork, always use the max effective balance from the fork
-        //     spec.max_effective_balance_for_fork(current_fork)
-        // } else {
-        //     // Otherwise use the validator's stored effective balance
-        //     self.effective_balance
-        // }
-    }
     #[allow(clippy::arithmetic_side_effects)]
     pub fn from_deposit(
         deposit_data: &DepositData,
@@ -68,18 +56,10 @@ impl Validator {
 
         let max_effective_balance = validator.get_max_effective_balance(spec, fork_name);
         // safe math is unnecessary here since the spec.effecive_balance_increment is never <= 0
-        println!("VALIDATOR.RS amount : {}, max_effective_balance : {}, spec.effective_balance_increment : {}", amount, max_effective_balance, spec.effective_balance_increment);
-        // When forced_electra_mode is true, always use max_effective_balance
-        // This ensures all validators have 1024 ETH effective balance from genesis
-        if spec.forced_electra_mode {
-            println!("FORCING EFFECTIVE BALANCE TO MAX IN from_deposit: {}", max_effective_balance);
-            validator.effective_balance = max_effective_balance;
-        } else {
-            validator.effective_balance = std::cmp::min(
-                amount - (amount % spec.effective_balance_increment),
-                max_effective_balance,
-            );
-        }
+        validator.effective_balance = std::cmp::min(
+            amount - (amount % spec.effective_balance_increment),
+            max_effective_balance,
+        );
 
         validator
     }
@@ -247,19 +227,9 @@ impl Validator {
         epoch: Epoch,
         spec: &ChainSpec,
     ) -> bool {
-        let result = self.has_execution_withdrawal_credential(spec)
+        self.has_execution_withdrawal_credential(spec)
             && self.withdrawable_epoch <= epoch
-            && balance > 0;
-        
-        println!("FULL WITHDRAWAL CHECK: has_execution_creds: {}, withdrawable: {}, epoch: {}, balance: {}, result: {}",
-            self.has_execution_withdrawal_credential(spec),
-            self.withdrawable_epoch,
-            epoch,
-            balance,
-            result
-        );
-        
-        result
+            && balance > 0
     }
 
     /// Returns `true` if the validator is partially withdrawable.
@@ -281,14 +251,9 @@ impl Validator {
     /// TODO(electra): refactor these functions and make it simpler.. this is a mess
     /// Returns `true` if the validator is partially withdrawable.
     fn is_partially_withdrawable_validator_capella(&self, balance: u64, spec: &ChainSpec) -> bool {
-        // Get max effective balance from ChainSpec (uses forced_electra_mode if set)
-        let max_effective_balance = spec.max_effective_balance_for_fork(ForkName::Base);
-        
-        println!("self.effective_balance == max_effective_balance {}", self.effective_balance == max_effective_balance);
-        println!("self.effective_balance : {}, max_effective_balance: {}", self.effective_balance, max_effective_balance);
-        
         self.has_eth1_withdrawal_credential(spec)
-            && balance > max_effective_balance
+            && self.effective_balance == spec.max_effective_balance
+            && balance > spec.max_effective_balance
     }
 
     /// Returns `true` if the validator is partially withdrawable.
@@ -300,24 +265,11 @@ impl Validator {
         spec: &ChainSpec,
         current_fork: ForkName,
     ) -> bool {
-        // When we're using forced_electra_mode, we have a special condition for withdrawals:
-        // Validators have a 1024 ETH effective balance but only ~32 ETH actual balance
-        if spec.forced_electra_mode {
-            // For withdrawal purposes, consider any balance above min_activation_balance (32 ETH) as withdrawable
-            // This ensures withdrawals still work in our custom reward system
-            let has_excess_balance = balance > spec.min_activation_balance;
-            println!("WITHDRAWAL CHECK (forced mode): balance: {}, min_activation_balance: {}, has_excess: {}", 
-                balance, spec.min_activation_balance, has_excess_balance);
-            return self.has_execution_withdrawal_credential(spec) && has_excess_balance;
-        }
-
-        // Regular Electra fork logic if not in forced mode
         let max_effective_balance = self.get_max_effective_balance(spec, current_fork);
+        let has_max_effective_balance = self.effective_balance == max_effective_balance;
         let has_excess_balance = balance > max_effective_balance;
-        println!("WITHDRAWAL CHECK (standard): balance: {}, max_effective_balance: {}, has_excess: {}", 
-            balance, max_effective_balance, has_excess_balance);
-        // Only require execution credentials and excess balance
         self.has_execution_withdrawal_credential(spec)
+            && has_max_effective_balance
             && has_excess_balance
     }
 
@@ -329,15 +281,11 @@ impl Validator {
 
     /// Returns the max effective balance for a validator in gwei.
     pub fn get_max_effective_balance(&self, spec: &ChainSpec, current_fork: ForkName) -> u64 {
-        // When forced_electra_mode is true, ALWAYS return max_effective_balance_electra (1024 ETH)
-        // regardless of withdrawal credentials or fork state
-        if spec.forced_electra_mode {
-            spec.max_effective_balance_electra  // 1024 ETH
-        } else if current_fork >= ForkName::Electra {
+        if current_fork >= ForkName::Electra {
             if self.has_compounding_withdrawal_credential(spec) {
-                spec.max_effective_balance_electra  // 1024 ETH
+                spec.max_effective_balance_electra
             } else {
-                spec.min_activation_balance  // 32 ETH
+                spec.min_activation_balance
             }
         } else {
             spec.max_effective_balance

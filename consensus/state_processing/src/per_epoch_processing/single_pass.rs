@@ -1049,12 +1049,7 @@ fn process_single_effective_balance_update(
     let effective_balance_limit = validator.get_max_effective_balance(spec, state_ctxt.fork_name);
 
     let old_effective_balance = validator.effective_balance;
-    // When forced_electra_mode is true, always set effective balance to max effective balance limit
-    // regardless of actual balance or hysteresis thresholds
-    let new_effective_balance = if spec.forced_electra_mode {
-        // Always use the maximum effective balance when in forced Electra mode
-        effective_balance_limit
-    } else if balance.safe_add(eb_ctxt.downward_threshold)?
+    let new_effective_balance = if balance.safe_add(eb_ctxt.downward_threshold)?
         < validator.effective_balance
         || validator
             .effective_balance
