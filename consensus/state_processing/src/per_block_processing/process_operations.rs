@@ -146,7 +146,7 @@ pub mod altair_deneb {
         verify_signatures: VerifySignatures,
         spec: &ChainSpec,
     ) -> Result<(), BlockProcessingError> {
-        let proposer_index = ctxt.get_proposer_index(state, spec)?;
+        let _proposer_index = ctxt.get_proposer_index(state, spec)?;
         let previous_epoch = ctxt.previous_epoch;
         let current_epoch = ctxt.current_epoch;
 
@@ -159,21 +159,18 @@ pub mod altair_deneb {
         )
         .map_err(|e| e.into_with_index(att_index))?;
 
-        // Matching roots, participation flag indices
+        // Only update participation flags without any reward processing
+        // All rewards will be handled centrally in per_block_processing.rs
         let data = attestation.data();
         let inclusion_delay = state.slot().safe_sub(data.slot)?.as_u64();
         let participation_flag_indices =
             get_attestation_participation_flag_indices(state, data, inclusion_delay, spec)?;
 
-        // Update epoch participation flags.
-        let mut proposer_reward_numerator = 0;
+        // Update epoch participation flags without applying any rewards
         for index in indexed_att.attesting_indices_iter() {
             let index = *index as usize;
 
-            let validator_effective_balance = state.epoch_cache().get_effective_balance(index)?;
-            let validator_slashed = state.slashings_cache().is_slashed(index);
-
-            for (flag_index, &weight) in PARTICIPATION_FLAG_WEIGHTS.iter().enumerate() {
+            for (flag_index, _) in PARTICIPATION_FLAG_WEIGHTS.iter().enumerate() {
                 let epoch_participation = state.get_epoch_participation_mut(
                     data.target.epoch,
                     previous_epoch,
@@ -187,9 +184,11 @@ pub mod altair_deneb {
 
                     if !validator_participation.has_flag(flag_index)? {
                         validator_participation.add_flag(flag_index)?;
-                        proposer_reward_numerator
-                            .safe_add_assign(state.get_base_reward(index)?.safe_mul(weight)?)?;
-
+                        
+                        // Only update the cache, but DO NOT apply any rewards
+                        let validator_effective_balance = state.epoch_cache().get_effective_balance(index)?;
+                        let validator_slashed = state.slashings_cache().is_slashed(index);
+                        
                         update_progressive_balances_on_attestation(
                             state,
                             data.target.epoch,
@@ -201,13 +200,9 @@ pub mod altair_deneb {
                 }
             }
         }
-
-        let proposer_reward_denominator = WEIGHT_DENOMINATOR
-            .safe_sub(PROPOSER_WEIGHT)?
-            .safe_mul(WEIGHT_DENOMINATOR)?
-            .safe_div(PROPOSER_WEIGHT)?;
-        let proposer_reward = proposer_reward_numerator.safe_div(proposer_reward_denominator)?;
-        increase_balance(state, proposer_index as usize, proposer_reward)?;
+        
+        // NO REWARD IS APPLIED HERE - all rewards are managed centrally in per_block_processing.rs
+        
         Ok(())
     }
 }

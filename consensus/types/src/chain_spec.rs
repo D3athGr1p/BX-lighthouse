@@ -640,15 +640,15 @@ impl ChainSpec {
              *  Gwei values
              */
             min_deposit_amount: option_wrapper(|| {
-                u64::checked_pow(2, 0)?.checked_mul(u64::checked_pow(10, 9)?)
+                u64::checked_pow(2, 7)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
             max_effective_balance: option_wrapper(|| {
-                u64::checked_pow(2, 5)?.checked_mul(u64::checked_pow(10, 9)?)
+                u64::checked_pow(2, 10)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
             ejection_balance: option_wrapper(|| {
-                u64::checked_pow(2, 4)?.checked_mul(u64::checked_pow(10, 9)?)
+                u64::checked_pow(2, 9)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
             effective_balance_increment: option_wrapper(|| {
@@ -740,7 +740,7 @@ impl ChainSpec {
              */
             inactivity_penalty_quotient_bellatrix: u64::checked_pow(2, 24)
                 .expect("pow does not overflow"),
-            min_slashing_penalty_quotient_bellatrix: u64::checked_pow(2, 5)
+            min_slashing_penalty_quotient_bellatrix: u64::checked_pow(2, 10)
                 .expect("pow does not overflow"),
             proportional_slashing_multiplier_bellatrix: 3,
             bellatrix_fork_version: [0x02, 0x00, 0x00, 0x00],
@@ -772,11 +772,11 @@ impl ChainSpec {
             unset_deposit_requests_start_index: u64::MAX,
             full_exit_request_amount: 0,
             min_activation_balance: option_wrapper(|| {
-                u64::checked_pow(2, 5)?.checked_mul(u64::checked_pow(10, 9)?)
+                u64::checked_pow(2, 10)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
             max_effective_balance_electra: option_wrapper(|| {
-                u64::checked_pow(2, 11)?.checked_mul(u64::checked_pow(10, 9)?)
+                u64::checked_pow(2, 16)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
             min_slashing_penalty_quotient_electra: u64::checked_pow(2, 12)
@@ -954,15 +954,15 @@ impl ChainSpec {
              *  Gwei values
              */
             min_deposit_amount: option_wrapper(|| {
-                u64::checked_pow(2, 0)?.checked_mul(u64::checked_pow(10, 9)?)
+                u64::checked_pow(2, 7)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
             max_effective_balance: option_wrapper(|| {
-                u64::checked_pow(2, 5)?.checked_mul(u64::checked_pow(10, 9)?)
+                u64::checked_pow(2, 10)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
             ejection_balance: option_wrapper(|| {
-                u64::checked_pow(2, 4)?.checked_mul(u64::checked_pow(10, 9)?)
+                u64::checked_pow(2, 9)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
             effective_balance_increment: option_wrapper(|| {
@@ -1054,7 +1054,7 @@ impl ChainSpec {
              */
             inactivity_penalty_quotient_bellatrix: u64::checked_pow(2, 24)
                 .expect("pow does not overflow"),
-            min_slashing_penalty_quotient_bellatrix: u64::checked_pow(2, 5)
+            min_slashing_penalty_quotient_bellatrix: u64::checked_pow(2, 10)
                 .expect("pow does not overflow"),
             proportional_slashing_multiplier_bellatrix: 3,
             bellatrix_fork_version: [0x02, 0x00, 0x00, 0x64],
@@ -1086,11 +1086,11 @@ impl ChainSpec {
             unset_deposit_requests_start_index: u64::MAX,
             full_exit_request_amount: 0,
             min_activation_balance: option_wrapper(|| {
-                u64::checked_pow(2, 5)?.checked_mul(u64::checked_pow(10, 9)?)
+                u64::checked_pow(2, 10)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
             max_effective_balance_electra: option_wrapper(|| {
-                u64::checked_pow(2, 11)?.checked_mul(u64::checked_pow(10, 9)?)
+                u64::checked_pow(2, 16)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
             min_slashing_penalty_quotient_electra: u64::checked_pow(2, 12)

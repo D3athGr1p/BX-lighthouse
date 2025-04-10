@@ -7,7 +7,7 @@ use crate::per_epoch_processing::{
     Delta, Error,
 };
 use safe_arith::SafeArith;
-use types::{BeaconState, ChainSpec, EthSpec};
+use types::{BeaconState, ChainSpec, EthSpec, Slot};
 
 /// Combination of several deltas for different components of an attestation reward.
 ///
@@ -54,33 +54,81 @@ pub enum ProposerRewardCalculation {
 /// Apply attester and proposer rewards.
 pub fn process_rewards_and_penalties<E: EthSpec>(
     state: &mut BeaconState<E>,
-    validator_statuses: &ValidatorStatuses,
+    _validator_statuses: &ValidatorStatuses,
     spec: &ChainSpec,
 ) -> Result<(), Error> {
-    if state.current_epoch() == E::genesis_epoch() {
-        return Ok(());
+    let current_epoch = state.current_epoch();
+    
+    // Import the rewards module to use its functionality
+    use crate::rewards::{RewardConfig, calculate_reward_amounts};
+    
+    // Create reward config with default values
+    let reward_config = RewardConfig::default();
+    
+    // Calculate rewards based on current epoch
+    let reward_amounts = calculate_reward_amounts(current_epoch, &reward_config);
+    
+    // For each slot in the current epoch, reward the proposer directly
+    let slots_per_epoch = E::slots_per_epoch();
+    let epoch_start_slot = current_epoch.start_slot(E::slots_per_epoch());
+    
+    // Always process proposer rewards
+    for i in 0..slots_per_epoch {
+        let slot = epoch_start_slot + i;
+        
+        // Find the proposer for this slot
+        match state.get_beacon_proposer_index(slot, spec) {
+            Ok(proposer_index) => {
+                if reward_amounts.proposer_reward > 0 {
+                    increase_balance(state, proposer_index, reward_amounts.proposer_reward)?;
+                    
+                }
+            },
+            Err(e) => {
+                println!("Could not find proposer for slot {}: {:?}", slot, e);
+            }
+        }
+    }
+    
+    // Process attestation rewards
+    if reward_amounts.attestation_reward > 0 {
+        // Use the attestation reward logic from rewards.rs
+        use crate::rewards::collect_attesting_validators;
+        
+        let validators_to_reward = collect_attesting_validators(state);
+        
+        // Apply rewards to active validators who participated in attestations
+        for validator_index in validators_to_reward {
+            increase_balance(state, validator_index, reward_amounts.attestation_reward)?;
+
+        }
     }
 
-    // Guard against an out-of-bounds during the validator balance update.
-    if validator_statuses.statuses.len() != state.balances().len()
-        || validator_statuses.statuses.len() != state.validators().len()
-    {
-        return Err(Error::ValidatorStatusesInconsistent);
-    }
+    // Process sync committee rewards if applicable
+    if reward_amounts.sync_committee_reward > 0 {
+        // First, collect sync committee pubkeys without retaining any reference to state
+        let mut committee_pubkeys = Vec::new();
+        if let Ok(sync_committee) = state.current_sync_committee() {
+		// Copy the public keys to avoid keeping a reference to sync_committee
+		for pubkey in sync_committee.pubkeys.iter() {
+		    committee_pubkeys.push(pubkey.clone());
+		}
+    	}
 
-    let deltas = get_attestation_deltas_all(
-        state,
-        validator_statuses,
-        ProposerRewardCalculation::Include,
-        spec,
-    )?;
-
-    // Apply the deltas, erroring on overflow above but not on overflow below (saturating at 0
-    // instead).
-    for (i, delta) in deltas.into_iter().enumerate() {
-        let combined_delta = delta.flatten()?;
-        increase_balance(state, i, combined_delta.rewards)?;
-        decrease_balance(state, i, combined_delta.penalties)?;
+        // Next, collect validator indices without any sync committee references
+        let mut sync_committee_validators = Vec::new();
+        for pubkey in committee_pubkeys.iter() {
+            if let Ok(Some(validator_index)) = state.get_validator_index(pubkey) {
+                sync_committee_validators.push(validator_index);
+            }
+        }
+        
+        // Finally, apply rewards with no conflicts
+        for validator_index in sync_committee_validators {
+            increase_balance(state, validator_index, reward_amounts.sync_committee_reward)?;
+            println!("Rewarded sync committee member {} in epoch {}: +{} Gwei",
+                    validator_index, current_epoch, reward_amounts.sync_committee_reward);
+        }
     }
 
     Ok(())
@@ -348,9 +396,14 @@ pub fn get_inactivity_penalty_delta(
     Ok(delta)
 }
 
-/// Compute the reward awarded to a proposer for including an attestation from a validator.
+/// Compute the reward awarded to a proposer.
 ///
-/// The `base_reward` param should be the `base_reward` of the attesting validator.
-fn get_proposer_reward(base_reward: u64, spec: &ChainSpec) -> Result<u64, Error> {
-    Ok(base_reward.safe_div(spec.proposer_reward_quotient)?)
+/// Returns a fixed amount (0) for our custom reward structure.
+pub fn get_proposer_reward(
+    _base_reward: u64,
+    _spec: &ChainSpec,
+) -> Result<u64, Error> {
+    // For our custom reward structure, we don't give any proposer rewards here
+    // All rewards are managed centrally in per_block_processing.rs
+    Ok(0)
 }

@@ -422,24 +422,31 @@ fn process_single_reward_and_penalty(
     balance: &mut Cow<u64>,
     inactivity_score: &u64,
     validator_info: &ValidatorInfo,
-    rewards_ctxt: &RewardsAndPenaltiesContext,
+    _rewards_ctxt: &RewardsAndPenaltiesContext,
     state_ctxt: &StateContext,
     spec: &ChainSpec,
 ) -> Result<(), Error> {
+    // IMPORTANT: We need to apply both the standard rewards (here) AND our centralized rewards
+    // Simply disabling rewards here breaks validator attestation incentives
+    
     if !validator_info.is_eligible {
         return Ok(());
     }
 
     let mut delta = Delta::default();
+
+    // Process standard rewards for each flag index (this is critical for attestation incentives)
     for flag_index in 0..NUM_FLAG_INDICES {
         get_flag_index_delta(
             &mut delta,
             validator_info,
             flag_index,
-            rewards_ctxt,
+            _rewards_ctxt,
             state_ctxt,
         )?;
     }
+
+    // Always apply inactivity penalties to maintain chain health
     get_inactivity_penalty_delta(
         &mut delta,
         validator_info,
@@ -448,10 +455,10 @@ fn process_single_reward_and_penalty(
         spec,
     )?;
 
+    // Apply both rewards and penalties
     if delta.rewards != 0 || delta.penalties != 0 {
         let balance = balance.make_mut()?;
-        balance.safe_add_assign(delta.rewards)?;
-        *balance = balance.saturating_sub(delta.penalties);
+        *balance = balance.saturating_add(delta.rewards).saturating_sub(delta.penalties);
     }
 
     Ok(())

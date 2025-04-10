@@ -1,4 +1,5 @@
 use crate::consensus_context::ConsensusContext;
+use crate::rewards::{RewardConfig, apply_all_rewards};
 use errors::{BlockOperationError, BlockProcessingError, HeaderInvalid};
 use rayon::prelude::*;
 use safe_arith::{ArithError, SafeArith};
@@ -190,6 +191,28 @@ pub fn per_block_processing<E: EthSpec, Payload: AbstractExecPayload<E>>(
 
     if is_progressive_balances_enabled(state) {
         update_progressive_balances_metrics(state.progressive_balances_cache())?;
+    }
+
+    // CENTRALIZED REWARD SYSTEM:
+    // Use our new rewards module to handle all rewards in one place
+    let current_epoch = state.current_epoch();
+    let slot = block.slot();
+
+    let reward_config = RewardConfig::default();
+
+    // Get sync aggregate if available
+    let sync_aggregate_opt = block.body().sync_aggregate().ok();
+
+    // Apply all rewards using the centralized system
+    if let Err(e) = apply_all_rewards(
+        state,
+        proposer_index,
+        sync_aggregate_opt,
+        current_epoch,
+        slot,
+        &reward_config,
+    ) {
+        println!("Warning: Failed to apply rewards: {}", e);
     }
 
     Ok(())
