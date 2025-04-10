@@ -312,7 +312,16 @@ pub enum AttesterSlashingInvalid {
 /// Describes why an object is invalid.
 #[derive(Debug, PartialEq, Clone)]
 pub enum AttestationInvalid {
+    /// Committee index exceeds number of committees in that slot.
+    BadCommitteeIndex,
     /// The attestation's slot is too high to be included in the given state.
+    IncludedTooEarly {
+        state: Slot,
+        delay: u64,
+        attestation: Slot,
+    },
+    /// Attestation slot is too far in the past to be included in a block.
+    IncludedTooLate { state: Slot, attestation: Slot },
     FutureSlot {
         attestation: Slot,
         state: Slot,
@@ -337,6 +346,10 @@ pub enum AttestationInvalid {
         target_epoch: Epoch,
         slot_epoch: Epoch,
     },
+    BadAggregationBitfieldLength {
+        committee_len: usize,
+        bitfield_len: usize,
+    },
     /// The attestation's target epoch doesn't match its source checkpoint.
     BadTargetEpoch,
     /// The finalized checkpoint within the state does not match what is implied by the attestation.
@@ -358,6 +371,8 @@ pub enum AttestationInvalid {
         target_epoch: Epoch,
         expected_source: Checkpoint,
     },
+    /// The attestation was not disjoint compared to already seen attestations.
+    NotDisjoint,
     /// The validator index was unknown.
     UnknownValidator(u64),
     /// The attestation signature verification failed.

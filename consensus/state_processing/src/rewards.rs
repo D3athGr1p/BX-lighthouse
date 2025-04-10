@@ -123,7 +123,7 @@ pub fn collect_attesting_validators<E: EthSpec>(
     }
 
     let result: Vec<usize> = validators_to_reward.into_iter().collect();
-    println!("Found {} validators to reward for attestations", result.len());
+    // println!("Found {} validators to reward for attestations", result.len());
     result
 }
 
@@ -210,10 +210,10 @@ pub fn apply_all_rewards<E: EthSpec>(
     if let Err(e) = apply_proposer_reward(state, proposer_index, reward_amounts.proposer_reward) {
         println!("Warning: Failed to apply proposer reward: {}", e);
     } else if reward_amounts.proposer_reward > 0 {
-        println!(
-            "Applied {} Gwei reward to proposer {} in epoch {} slot {}", 
-            reward_amounts.proposer_reward, proposer_index, current_epoch, slot
-        );
+        // println!(
+        //     "Applied {} Gwei reward to proposer {} in epoch {} slot {}", 
+        //     reward_amounts.proposer_reward, proposer_index, current_epoch, slot
+        // );
     }
 
     // Apply attestation rewards
@@ -229,20 +229,20 @@ pub fn apply_all_rewards<E: EthSpec>(
     }
 
     // Log summary
-    if current_epoch.as_u64() <= config.initial_reward_epochs {
-        println!(
-            "Applied rewards in epoch {} slot {}: proposer={}, attestation={}, sync={}", 
-            current_epoch, slot, 
-            reward_amounts.proposer_reward,
-            reward_amounts.attestation_reward,
-            reward_amounts.sync_committee_reward
-        );
-    } else {
-        println!(
-            "Applied minimal rewards in epoch {} slot {} (beyond initial reward period)", 
-            current_epoch, slot
-        );
-    }
+    // if current_epoch.as_u64() <= config.initial_reward_epochs {
+    //     println!(
+    //         "Applied rewards in epoch {} slot {}: proposer={}, attestation={}, sync={}", 
+    //         current_epoch, slot, 
+    //         reward_amounts.proposer_reward,
+    //         reward_amounts.attestation_reward,
+    //         reward_amounts.sync_committee_reward
+    //     );
+    // } else {
+    //     println!(
+    //         "Applied minimal rewards in epoch {} slot {} (beyond initial reward period)", 
+    //         current_epoch, slot
+    //     );
+    // }
 
     Ok(())
 }
