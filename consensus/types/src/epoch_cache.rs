@@ -123,6 +123,8 @@ impl EpochCache {
         let effective_balance = self.get_effective_balance(validator_index)?;
         let effective_balance_eth =
             effective_balance.safe_div(inner.effective_balance_increment)? as usize;
+        println!("effective_balance_eth : {}", effective_balance_eth);
+        println!("inner inner inner inner inner : {:?}", &inner.base_rewards);
         inner
             .base_rewards
             .get(effective_balance_eth)

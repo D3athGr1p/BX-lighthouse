@@ -22,8 +22,6 @@ pub struct RewardConfig {
     pub attestation_reward_ongoing: u64,
     /// Reward amount for sync committee (in Gwei) after the initial epochs
     pub sync_committee_reward_ongoing: u64,
-    /// Number of epochs for initial rewards period
-    pub initial_reward_epochs: u64,
 }
 
 impl Default for RewardConfig {
@@ -37,10 +35,7 @@ impl Default for RewardConfig {
 
             // Ongoing rewards after initial period
             attestation_reward_ongoing: 1_00_000, // 0.0001 ETH in Gwei
-            sync_committee_reward_ongoing: 1_00_000, // 0001 ETH in Gwei
-
-            // Initial reward period lasts for 10 epochs
-            initial_reward_epochs: 10,
+            sync_committee_reward_ongoing: 1_00_000, // 0.0001 ETH in Gwei
         }
     }
 }
@@ -57,21 +52,85 @@ pub fn calculate_reward_amounts(
     current_epoch: Epoch,
     config: &RewardConfig,
 ) -> RewardAmounts {
-    let in_initial_period = current_epoch.as_u64() <= config.initial_reward_epochs;
-
-    if in_initial_period {
-        RewardAmounts {
-            proposer_reward: config.proposer_reward_initial,
-            attestation_reward: config.attestation_reward_initial,
-            sync_committee_reward: config.sync_committee_reward_initial,
-        }
-    } else {
-        RewardAmounts {
-            proposer_reward: 0, // 5 ETH for ongoing proposer rewards
-            attestation_reward: config.attestation_reward_ongoing,
-            sync_committee_reward: config.sync_committee_reward_ongoing,
-        }
+    RewardAmounts {
+        proposer_reward: 10,
+        attestation_reward: config.attestation_reward_initial,
+        sync_committee_reward: config.sync_committee_reward_initial,
     }
+    // let ep = current_epoch.as_u64();
+    // let mut proposer_reward_amount;
+
+    // if  ep <= 25200 {
+    //     proposer_reward_amount = 2.6;
+    // } else if ep <= 100800 {
+    //     proposer_reward_amount: 2.1;
+    // } else if ep <= 176400 {
+    //     proposer_reward_amount: 1.7;
+    // } else if ep <= 252000 {
+    //     proposer_reward_amount: 1.3;
+    // } else if ep <= 327600 {
+    //     proposer_reward_amount: 1.1;
+    // } else if ep <= 403200 {
+    //     proposer_reward_amount: 1;
+    // } else if ep <= 478800 {
+    //     proposer_reward_amount: 0.9;
+    // } else if ep <= 554400 {
+    //     proposer_reward_amount: 0.75;
+    // } else if ep <= 630000 {
+    //     proposer_reward_amount: 0.65;
+    // } else if ep <= 705600 {
+    //     proposer_reward_amount: 0.65;
+    // } else if ep <= 781200 {
+    //     proposer_reward_amount: 0.6;
+    // } else if ep <= 856800 {
+    //     proposer_reward_amount: 0.55;
+    // } else if ep <= 932400 {
+    //     proposer_reward_amount: 0.5;
+    // } else if ep <= 1008000 {
+    //     proposer_reward_amount: 0.45;
+    // } else if ep <= 1083600 {
+    //     proposer_reward_amount: 0.4;
+    // } else if ep <= 1159200 {
+    //     proposer_reward_amount: 0.35;
+    // } else if ep <= 1234800 {
+    //     proposer_reward_amount: 0.3;
+    // } else if ep <= 1310400 {
+    //     proposer_reward_amount: 0.25;
+    // } else if ep <= 1386000 {
+    //     proposer_reward_amount: 0.2;
+    // } else if ep <= 1461600 {
+    //     proposer_reward_amount: 0.15;
+    // } else if ep <= 1537200 {
+    //     proposer_reward_amount: 0.1;
+    // } else if ep <= 1612800 {
+    //     proposer_reward_amount: 0.05;
+    // } else if ep <= 1688400 {
+    //     proposer_reward_amount: 0.045;
+    // } else if ep <= 1764000 {
+    //     proposer_reward_amount: 0.04;
+    // } else if ep <= 1839600 {
+    //     proposer_reward_amount: 0.035;
+    // } else if ep <= 1915200 {
+    //     proposer_reward_amount: 0.03;
+    // } else if ep <= 1990800 {
+    //     proposer_reward_amount: 0.025;
+    // } else if ep <= 2066400 {
+    //     proposer_reward_amount: 0.02;
+    // } else if ep <= 2142000 {
+    //     proposer_reward_amount: 0.015;
+    // } else if ep <= 2217600 {
+    //     proposer_reward_amount: 0.01;
+    // } else if ep <= 2293200 {
+    //     proposer_reward_amount: 0.005;
+    // } else {
+    //     proposer_reward_amount: 0;
+    // }
+
+    // RewardAmounts {
+    //     proposer_reward: proposer_reward_amount,
+    //     attestation_reward: config.attestation_reward_initial,
+    //     sync_committee_reward: config.sync_committee_reward_initial,
+    // }
 }
 
 /// Apply the proposer reward to the given validator with distribution to dev and charity addresses
