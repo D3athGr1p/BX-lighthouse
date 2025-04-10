@@ -100,17 +100,6 @@ fn process_sync_committee_contributions<E: EthSpec>(
     }
 }
 
-/// Helper function to verify a sync committee signature.
-pub fn verify_sync_committee_signature<E: EthSpec>(
-    _state: &BeaconState<E>,
-    _aggregate: &SyncAggregate<E>,
-    _spec: &ChainSpec,
-) -> Result<(), BlockProcessingError> {
-    // Sync committee signatures remain the same
-    // Just marking the function as public for potential usage in rewards.rs
-    Ok(())
-}
-
 /// Compute the `(participant_reward, proposer_reward)` for a sync aggregate.
 ///
 /// This function is maintained for backwards compatibility with the rest of the codebase,

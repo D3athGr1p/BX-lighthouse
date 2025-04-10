@@ -509,7 +509,7 @@ impl<E: EthSpec> Eth1ChainBackend<E> for CachingEth1Backend<E> {
                 })
                 .unwrap_or_else(|| {
                     let vote = state.eth1_data().clone();
-                    error!(
+                    debug!( // temp 
                         self.log,
                         "No valid eth1_data votes, `votes_to_consider` empty";
                         "lowest_block_number" => self.core.lowest_block_number(),
