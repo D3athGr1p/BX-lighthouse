@@ -652,7 +652,7 @@ impl ChainSpec {
             })
             .expect("calculation does not overflow"),
             effective_balance_increment: option_wrapper(|| {
-                u64::checked_pow(2, 10)?.checked_mul(u64::checked_pow(10, 9)?)
+                100u64.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
 
@@ -740,8 +740,7 @@ impl ChainSpec {
              */
             inactivity_penalty_quotient_bellatrix: u64::checked_pow(2, 24)
                 .expect("pow does not overflow"),
-            min_slashing_penalty_quotient_bellatrix: 100000u64
-                .expect("pow does not overflow"),
+            min_slashing_penalty_quotient_bellatrix: 100000u64,
             proportional_slashing_multiplier_bellatrix: 3,
             bellatrix_fork_version: [0x02, 0x00, 0x00, 0x00],
             bellatrix_fork_epoch: Some(Epoch::new(144896)),
@@ -966,7 +965,7 @@ impl ChainSpec {
             })
             .expect("calculation does not overflow"),
             effective_balance_increment: option_wrapper(|| {
-                u64::checked_pow(2, 10)?.checked_mul(u64::checked_pow(10, 9)?)
+                100u64.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
 
@@ -1054,7 +1053,7 @@ impl ChainSpec {
              */
             inactivity_penalty_quotient_bellatrix: u64::checked_pow(2, 24)
                 .expect("pow does not overflow"),
-            min_slashing_penalty_quotient_bellatrix: 100000u64.expect("pow does not overflow"),
+            min_slashing_penalty_quotient_bellatrix: 100000u64,
             proportional_slashing_multiplier_bellatrix: 3,
             bellatrix_fork_version: [0x02, 0x00, 0x00, 0x64],
             bellatrix_fork_epoch: Some(Epoch::new(385536)),

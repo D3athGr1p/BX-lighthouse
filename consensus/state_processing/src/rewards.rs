@@ -18,10 +18,6 @@ pub struct RewardConfig {
     pub attestation_reward_initial: u64,
     /// Reward amount for sync committee (in Gwei) during the initial epochs
     pub sync_committee_reward_initial: u64,
-    /// Reward amount for attestations (in Gwei) after the initial epochs
-    pub attestation_reward_ongoing: u64,
-    /// Reward amount for sync committee (in Gwei) after the initial epochs
-    pub sync_committee_reward_ongoing: u64,
 }
 
 impl Default for RewardConfig {
@@ -32,10 +28,6 @@ impl Default for RewardConfig {
             proposer_reward_initial: 10_000_000_000, // 10 ETH in Gwei
             attestation_reward_initial: 1_00_000, // 0.0001 ETH in Gwei
             sync_committee_reward_initial: 1_00_000, // 0.0001 ETH in Gwei
-
-            // Ongoing rewards after initial period
-            attestation_reward_ongoing: 1_00_000, // 0.0001 ETH in Gwei
-            sync_committee_reward_ongoing: 1_00_000, // 0.0001 ETH in Gwei
         }
     }
 }
@@ -52,85 +44,80 @@ pub fn calculate_reward_amounts(
     current_epoch: Epoch,
     config: &RewardConfig,
 ) -> RewardAmounts {
+    let ep = current_epoch.as_u64();
+    let mut proposer_reward_amount;
+
+    if  ep <= 25200 {
+        proposer_reward_amount = 2_600_000_000;
+    } else if ep <= 100800 {
+        proposer_reward_amount = 2_100_000_000;
+    } else if ep <= 176400 {
+        proposer_reward_amount = 1_700_000_000;
+    } else if ep <= 252000 {
+        proposer_reward_amount = 1_300_000_000;
+    } else if ep <= 327600 {
+        proposer_reward_amount = 1_100_000_000;
+    } else if ep <= 403200 {
+        proposer_reward_amount = 1_000_000_000;
+    } else if ep <= 478800 {
+        proposer_reward_amount = 900_000_000;
+    } else if ep <= 554400 {
+        proposer_reward_amount = 750_000_000;
+    } else if ep <= 630000 {
+        proposer_reward_amount = 650_000_000;
+    } else if ep <= 705600 {
+        proposer_reward_amount = 650_000_000;
+    } else if ep <= 781200 {
+        proposer_reward_amount = 600_000_000;
+    } else if ep <= 856800 {
+        proposer_reward_amount = 550_000_000;
+    } else if ep <= 932400 {
+        proposer_reward_amount = 500_000_000;
+    } else if ep <= 1008000 {
+        proposer_reward_amount = 450_000_000;
+    } else if ep <= 1083600 {
+        proposer_reward_amount = 400_000_000;
+    } else if ep <= 1159200 {
+        proposer_reward_amount = 350_000_000;
+    } else if ep <= 1234800 {
+        proposer_reward_amount = 300_000_000;
+    } else if ep <= 1310400 {
+        proposer_reward_amount = 250_000_000;
+    } else if ep <= 1386000 {
+        proposer_reward_amount = 200_000_000;
+    } else if ep <= 1461600 {
+        proposer_reward_amount = 150_000_000;
+    } else if ep <= 1537200 {
+        proposer_reward_amount = 100_000_000;
+    } else if ep <= 1612800 {
+        proposer_reward_amount = 50_000_000;
+    } else if ep <= 1688400 {
+        proposer_reward_amount = 45_000_000;
+    } else if ep <= 1764000 {
+        proposer_reward_amount = 40_000_000;
+    } else if ep <= 1839600 {
+        proposer_reward_amount = 35_000_000;
+    } else if ep <= 1915200 {
+        proposer_reward_amount = 30_000_000;
+    } else if ep <= 1990800 {
+        proposer_reward_amount = 25_000_000;
+    } else if ep <= 2066400 {
+        proposer_reward_amount = 20_000_000;
+    } else if ep <= 2142000 {
+        proposer_reward_amount = 15_000_000;
+    } else if ep <= 2217600 {
+        proposer_reward_amount = 10_000_000;
+    } else if ep <= 2293200 {
+        proposer_reward_amount = 5_000_000;
+    } else {
+        proposer_reward_amount = 0;
+    }
+
     RewardAmounts {
-        proposer_reward: 10,
+        proposer_reward: proposer_reward_amount,
         attestation_reward: config.attestation_reward_initial,
         sync_committee_reward: config.sync_committee_reward_initial,
     }
-    // let ep = current_epoch.as_u64();
-    // let mut proposer_reward_amount;
-
-    // if  ep <= 25200 {
-    //     proposer_reward_amount = 2.6;
-    // } else if ep <= 100800 {
-    //     proposer_reward_amount: 2.1;
-    // } else if ep <= 176400 {
-    //     proposer_reward_amount: 1.7;
-    // } else if ep <= 252000 {
-    //     proposer_reward_amount: 1.3;
-    // } else if ep <= 327600 {
-    //     proposer_reward_amount: 1.1;
-    // } else if ep <= 403200 {
-    //     proposer_reward_amount: 1;
-    // } else if ep <= 478800 {
-    //     proposer_reward_amount: 0.9;
-    // } else if ep <= 554400 {
-    //     proposer_reward_amount: 0.75;
-    // } else if ep <= 630000 {
-    //     proposer_reward_amount: 0.65;
-    // } else if ep <= 705600 {
-    //     proposer_reward_amount: 0.65;
-    // } else if ep <= 781200 {
-    //     proposer_reward_amount: 0.6;
-    // } else if ep <= 856800 {
-    //     proposer_reward_amount: 0.55;
-    // } else if ep <= 932400 {
-    //     proposer_reward_amount: 0.5;
-    // } else if ep <= 1008000 {
-    //     proposer_reward_amount: 0.45;
-    // } else if ep <= 1083600 {
-    //     proposer_reward_amount: 0.4;
-    // } else if ep <= 1159200 {
-    //     proposer_reward_amount: 0.35;
-    // } else if ep <= 1234800 {
-    //     proposer_reward_amount: 0.3;
-    // } else if ep <= 1310400 {
-    //     proposer_reward_amount: 0.25;
-    // } else if ep <= 1386000 {
-    //     proposer_reward_amount: 0.2;
-    // } else if ep <= 1461600 {
-    //     proposer_reward_amount: 0.15;
-    // } else if ep <= 1537200 {
-    //     proposer_reward_amount: 0.1;
-    // } else if ep <= 1612800 {
-    //     proposer_reward_amount: 0.05;
-    // } else if ep <= 1688400 {
-    //     proposer_reward_amount: 0.045;
-    // } else if ep <= 1764000 {
-    //     proposer_reward_amount: 0.04;
-    // } else if ep <= 1839600 {
-    //     proposer_reward_amount: 0.035;
-    // } else if ep <= 1915200 {
-    //     proposer_reward_amount: 0.03;
-    // } else if ep <= 1990800 {
-    //     proposer_reward_amount: 0.025;
-    // } else if ep <= 2066400 {
-    //     proposer_reward_amount: 0.02;
-    // } else if ep <= 2142000 {
-    //     proposer_reward_amount: 0.015;
-    // } else if ep <= 2217600 {
-    //     proposer_reward_amount: 0.01;
-    // } else if ep <= 2293200 {
-    //     proposer_reward_amount: 0.005;
-    // } else {
-    //     proposer_reward_amount: 0;
-    // }
-
-    // RewardAmounts {
-    //     proposer_reward: proposer_reward_amount,
-    //     attestation_reward: config.attestation_reward_initial,
-    //     sync_committee_reward: config.sync_committee_reward_initial,
-    // }
 }
 
 /// Apply the proposer reward to the given validator with distribution to dev and charity addresses
