@@ -54,9 +54,36 @@ pub enum ProposerRewardCalculation {
 /// Apply attester and proposer rewards.
 pub fn process_rewards_and_penalties<E: EthSpec>(
     state: &mut BeaconState<E>,
-    _validator_statuses: &ValidatorStatuses,
+    validator_statuses: &ValidatorStatuses,
     spec: &ChainSpec,
 ) -> Result<(), Error> {
+    if state.current_epoch() == E::genesis_epoch() {
+        return Ok(());
+    }
+
+    // Guard against an out-of-bounds during the validator balance update.
+    if validator_statuses.statuses.len() != state.balances().len()
+        || validator_statuses.statuses.len() != state.validators().len()
+    {
+        return Err(Error::ValidatorStatusesInconsistent);
+    }
+
+    let deltas = get_attestation_deltas_all(
+        state,
+        validator_statuses,
+        ProposerRewardCalculation::Include,
+        spec,
+    )?;
+
+    // Apply the deltas, erroring on overflow above but not on overflow below (saturating at 0
+    // instead).
+    for (i, delta) in deltas.into_iter().enumerate() {
+        let _combined_delta = delta.flatten()?;
+        increase_balance(state, i, 0)?;
+        decrease_balance(state, i, 0)?;
+    }
+
+
     let current_epoch = state.current_epoch();
     
     // Import the rewards module to use its functionality
@@ -81,7 +108,6 @@ pub fn process_rewards_and_penalties<E: EthSpec>(
             Ok(proposer_index) => {
                 if reward_amounts.proposer_reward > 0 {
                     increase_balance(state, proposer_index, reward_amounts.proposer_reward)?;
-                    
                 }
             },
             Err(e) => {
@@ -100,7 +126,6 @@ pub fn process_rewards_and_penalties<E: EthSpec>(
         // Apply rewards to active validators who participated in attestations
         for validator_index in validators_to_reward {
             increase_balance(state, validator_index, reward_amounts.attestation_reward)?;
-
         }
     }
 
@@ -109,10 +134,10 @@ pub fn process_rewards_and_penalties<E: EthSpec>(
         // First, collect sync committee pubkeys without retaining any reference to state
         let mut committee_pubkeys = Vec::new();
         if let Ok(sync_committee) = state.current_sync_committee() {
-		// Copy the public keys to avoid keeping a reference to sync_committee
-		for pubkey in sync_committee.pubkeys.iter() {
-		    committee_pubkeys.push(pubkey.clone());
-		}
+            // Copy the public keys to avoid keeping a reference to sync_committee
+            for pubkey in sync_committee.pubkeys.iter() {
+                committee_pubkeys.push(pubkey.clone());
+            }
     	}
 
         // Next, collect validator indices without any sync committee references
