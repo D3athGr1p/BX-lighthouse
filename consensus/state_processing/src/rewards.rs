@@ -1,14 +1,14 @@
-use types::{BeaconState, EthSpec, Epoch, SyncAggregate, Slot};
 use std::collections::HashSet;
+use types::{BeaconState, Epoch, EthSpec, Slot, SyncAggregate};
 
 /// Constants for reward distribution percentages
 pub const VALIDATOR_REWARD_PERCENTAGE: u64 = 70;
-pub const DEV_REWARD_PERCENTAGE: u64 = 20;
-pub const CHARITY_REWARD_PERCENTAGE: u64 = 10;
+pub const GRIDBOX_REWARD_PERCENTAGE: u64 = 20;
+pub const MARKETING_REWARD_PERCENTAGE: u64 = 10;
 
 /// Fixed indices for special reward addresses
-pub const DEV_ADDRESS_INDEX: usize = 0;
-pub const CHARITY_ADDRESS_INDEX: usize = 1;
+pub const GRIDBOX_ADDRESS_INDEX: usize = 0;
+pub const MARKETING_ADDRESS_INDEX: usize = 1;
 
 /// Central reward configuration for the blockchain system
 pub struct RewardConfig {
@@ -23,10 +23,9 @@ pub struct RewardConfig {
 impl Default for RewardConfig {
     fn default() -> Self {
         Self {
-            // Scale the rewards appropriately for 1024 ETH validator balance
             // Initial rewards (first few epochs) - higher to incentivize participation
-            proposer_reward_initial: 10_000_000_000, // 10 ETH in Gwei
-            attestation_reward_initial: 1_00_000, // 0.0001 ETH in Gwei
+            proposer_reward_initial: 2_600_000_000, // 2.6 ETH in Gwei
+            attestation_reward_initial: 1_00_000,   // 0.0001 ETH in Gwei
             sync_committee_reward_initial: 1_00_000, // 0.0001 ETH in Gwei
         }
     }
@@ -40,14 +39,11 @@ pub struct RewardAmounts {
 }
 
 /// Calculate reward amounts based on the current epoch and reward configuration
-pub fn calculate_reward_amounts(
-    current_epoch: Epoch,
-    config: &RewardConfig,
-) -> RewardAmounts {
+pub fn calculate_reward_amounts(current_epoch: Epoch, config: &RewardConfig) -> RewardAmounts {
     let ep = current_epoch.as_u64();
     let mut proposer_reward_amount;
 
-    if  ep <= 25200 {
+    if ep <= 25200 {
         proposer_reward_amount = 2_600_000_000;
     } else if ep <= 100800 {
         proposer_reward_amount = 2_100_000_000;
@@ -129,40 +125,38 @@ pub fn apply_proposer_reward<E: EthSpec>(
     if reward_amount == 0 {
         return Ok(());
     }
-    
+
     // Calculate distributed rewards based on percentages
     let validator_reward = reward_amount.saturating_mul(VALIDATOR_REWARD_PERCENTAGE) / 100;
-    let dev_reward = reward_amount.saturating_mul(DEV_REWARD_PERCENTAGE) / 100;
-    let charity_reward = reward_amount.saturating_mul(CHARITY_REWARD_PERCENTAGE) / 100;
-    
+    let dev_reward = reward_amount.saturating_mul(GRIDBOX_REWARD_PERCENTAGE) / 100;
+    let charity_reward = reward_amount.saturating_mul(MARKETING_REWARD_PERCENTAGE) / 100;
+
     // Apply rewards to the proposer validator (70%)
     if let Ok(balance) = state.get_balance_mut(proposer_index as usize) {
         *balance = balance.saturating_add(validator_reward);
     } else {
         return Err("Failed to get proposer balance");
     }
-    
+
     // Apply dev rewards (20%)
-    if let Ok(dev_balance) = state.get_balance_mut(DEV_ADDRESS_INDEX) {
+    if let Ok(dev_balance) = state.get_balance_mut(GRIDBOX_ADDRESS_INDEX) {
         *dev_balance = dev_balance.saturating_add(dev_reward);
     } else {
         return Err("Failed to get dev address balance");
     }
-    
+
     // Apply charity rewards (10%)
-    if let Ok(charity_balance) = state.get_balance_mut(CHARITY_ADDRESS_INDEX) {
+    if let Ok(charity_balance) = state.get_balance_mut(MARKETING_ADDRESS_INDEX) {
         *charity_balance = charity_balance.saturating_add(charity_reward);
     } else {
         return Err("Failed to get charity address balance");
     }
-    
+
     Ok(())
 }
 
 /// Collect all validator indices that are eligible for attestation rewards
-pub fn collect_attesting_validators<E: EthSpec>(
-    state: &BeaconState<E>,
-) -> Vec<usize> {
+pub fn collect_attesting_validators<E: EthSpec>(state: &BeaconState<E>) -> Vec<usize> {
     let mut validators_to_reward = HashSet::new();
 
     // Previous epoch attesters
@@ -188,7 +182,9 @@ pub fn collect_attesting_validators<E: EthSpec>(
     // Fallback: If no validators found with participation flags, include all active validators
     // This ensures rewards continue even if participation tracking has issues
     if validators_to_reward.is_empty() {
-        println!("WARNING: No validators found with participation flags. Adding all active validators.");
+        println!(
+            "WARNING: No validators found with participation flags. Adding all active validators."
+        );
         for (validator_index, validator) in state.validators().iter().enumerate() {
             if validator.is_active_at(state.current_epoch()) {
                 validators_to_reward.insert(validator_index);
@@ -211,30 +207,30 @@ pub fn apply_attestation_rewards<E: EthSpec>(
 
     // Calculate distributed rewards based on percentages
     let validator_reward = reward_amount.saturating_mul(VALIDATOR_REWARD_PERCENTAGE) / 100;
-    let dev_reward = reward_amount.saturating_mul(DEV_REWARD_PERCENTAGE) / 100;
-    let charity_reward = reward_amount.saturating_mul(CHARITY_REWARD_PERCENTAGE) / 100;
-    
+    let dev_reward = reward_amount.saturating_mul(GRIDBOX_REWARD_PERCENTAGE) / 100;
+    let charity_reward = reward_amount.saturating_mul(MARKETING_REWARD_PERCENTAGE) / 100;
+
     // Calculate total dev and charity rewards based on number of validators
     let validators_to_reward = collect_attesting_validators(state);
     let total_dev_reward = dev_reward.saturating_mul(validators_to_reward.len() as u64);
     let total_charity_reward = charity_reward.saturating_mul(validators_to_reward.len() as u64);
-    
+
     // Apply rewards to individual validators (70%)
     for validator_index in validators_to_reward.iter() {
         if let Ok(balance) = state.get_balance_mut(*validator_index) {
             *balance = balance.saturating_add(validator_reward);
         }
     }
-    
+
     // Apply dev rewards (20% of total)
-    if let Ok(dev_balance) = state.get_balance_mut(DEV_ADDRESS_INDEX) {
+    if let Ok(dev_balance) = state.get_balance_mut(GRIDBOX_ADDRESS_INDEX) {
         *dev_balance = dev_balance.saturating_add(total_dev_reward);
     } else {
         return Err("Failed to get dev address balance");
     }
-    
+
     // Apply charity rewards (10% of total)
-    if let Ok(charity_balance) = state.get_balance_mut(CHARITY_ADDRESS_INDEX) {
+    if let Ok(charity_balance) = state.get_balance_mut(MARKETING_ADDRESS_INDEX) {
         *charity_balance = charity_balance.saturating_add(total_charity_reward);
     } else {
         return Err("Failed to get charity address balance");
@@ -255,8 +251,8 @@ pub fn apply_sync_committee_rewards<E: EthSpec>(
 
     // Calculate distributed rewards based on percentages
     let validator_reward = reward_amount.saturating_mul(VALIDATOR_REWARD_PERCENTAGE) / 100;
-    let dev_reward = reward_amount.saturating_mul(DEV_REWARD_PERCENTAGE) / 100;
-    let charity_reward = reward_amount.saturating_mul(CHARITY_REWARD_PERCENTAGE) / 100;
+    let dev_reward = reward_amount.saturating_mul(GRIDBOX_REWARD_PERCENTAGE) / 100;
+    let charity_reward = reward_amount.saturating_mul(MARKETING_REWARD_PERCENTAGE) / 100;
 
     // First, collect pubkeys and participation bits without borrowing issues
     let mut sync_committee_pairs = Vec::new();
@@ -280,7 +276,7 @@ pub fn apply_sync_committee_rewards<E: EthSpec>(
             sync_committee_indices.push(validator_index);
         }
     }
-    
+
     // Calculate total dev and charity rewards based on number of validators
     let total_dev_reward = dev_reward.saturating_mul(sync_committee_indices.len() as u64);
     let total_charity_reward = charity_reward.saturating_mul(sync_committee_indices.len() as u64);
@@ -291,16 +287,16 @@ pub fn apply_sync_committee_rewards<E: EthSpec>(
             *balance = balance.saturating_add(validator_reward);
         }
     }
-    
+
     // Apply dev rewards (20% of total)
-    if let Ok(dev_balance) = state.get_balance_mut(DEV_ADDRESS_INDEX) {
+    if let Ok(dev_balance) = state.get_balance_mut(GRIDBOX_ADDRESS_INDEX) {
         *dev_balance = dev_balance.saturating_add(total_dev_reward);
     } else {
         return Err("Failed to get dev address balance");
     }
-    
+
     // Apply charity rewards (10% of total)
-    if let Ok(charity_balance) = state.get_balance_mut(CHARITY_ADDRESS_INDEX) {
+    if let Ok(charity_balance) = state.get_balance_mut(MARKETING_ADDRESS_INDEX) {
         *charity_balance = charity_balance.saturating_add(total_charity_reward);
     } else {
         return Err("Failed to get charity address balance");
@@ -315,7 +311,7 @@ pub fn apply_all_rewards<E: EthSpec>(
     proposer_index: u64,
     sync_aggregate_opt: Option<&SyncAggregate<E>>,
     current_epoch: Epoch,
-    slot: Slot,
+    _slot: Slot,
     config: &RewardConfig,
 ) -> Result<(), &'static str> {
     // Calculate reward amounts for the current epoch
@@ -333,7 +329,11 @@ pub fn apply_all_rewards<E: EthSpec>(
 
     // Apply sync committee rewards if aggregate is available
     if let Some(sync_aggregate) = sync_aggregate_opt {
-        if let Err(e) = apply_sync_committee_rewards(state, sync_aggregate, reward_amounts.sync_committee_reward) {
+        if let Err(e) = apply_sync_committee_rewards(
+            state,
+            sync_aggregate,
+            reward_amounts.sync_committee_reward,
+        ) {
             println!("Warning: Failed to apply sync committee rewards: {}", e);
         }
     }
